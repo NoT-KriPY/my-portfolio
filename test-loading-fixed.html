@@ -1,0 +1,462 @@
+<title>Loading Screen Test - Fixed 6-Stage Sequence</title>
+<style>
+  :root {
+    --color-bg: #fafafa;
+    --color-text: #222222;
+    --color-border: #e0e0e0;
+    --color-subtle: #666666;
+    --color-accent: #3b82f6;
+    --color-hud: rgba(0, 0, 0, 0.08);
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  @media (prefers-color-scheme: dark), :root[data-theme="dark"] {
+    :root:not([data-theme="light"]) {
+      --color-bg: #0a0a0a;
+      --color-text: #f5f5f0;
+      --color-border: #222222;
+      --color-subtle: #a8a8a3;
+      --color-accent: #3b82f6;
+      --color-hud: rgba(255, 255, 255, 0.08);
+    }
+  }
+
+  body {
+    margin: 0;
+    padding: 2rem;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+  }
+
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+
+  .header h1 {
+    font-size: 2rem;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .header p {
+    color: var(--color-subtle);
+    margin: 0;
+  }
+
+  .test-section {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  .test-section h2 {
+    margin: 0 0 1rem 0;
+    font-size: 1.25rem;
+  }
+
+  .demo-area {
+    min-height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed var(--color-border);
+    border-radius: 8px;
+    padding: 2rem;
+    margin: 1rem 0;
+    background: var(--color-hud);
+  }
+
+  .stage-display {
+    text-align: center;
+  }
+
+  .stage-primary {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+
+  .stage-secondary {
+    font-size: 0.875rem;
+    color: var(--color-subtle);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .progress-container {
+    width: min(80vw, 500px);
+    margin-top: 2rem;
+    display: none;
+  }
+
+  .progress-track {
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--color-border) 20%,
+      var(--color-border) 80%,
+      transparent 100%
+    );
+    position: relative;
+    overflow: visible;
+    border-radius: 1.5px;
+  }
+
+  .progress-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--color-accent) 20%,
+      var(--color-accent) 80%,
+      transparent 100%
+    );
+    border-radius: 1.5px;
+    transition: width 0.1s linear;
+  }
+
+  .progress-glow {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--color-accent);
+    box-shadow: 0 0 8px var(--color-accent), 0 0 16px rgba(59, 130, 246, 0.3);
+    filter: blur(0.5px);
+  }
+
+  .ready-status {
+    font-family: monospace;
+    font-size: 0.875rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+    margin-top: 1rem;
+    display: none;
+  }
+
+  .stage-info {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  .stage-item {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .stage-item.active {
+    border-color: var(--color-accent);
+    background: rgba(59, 130, 246, 0.1);
+  }
+
+  .controls {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .control-button {
+    background: var(--color-border);
+    border: 1px solid var(--color-accent);
+    color: var(--color-text);
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .control-button:hover {
+    background: var(--color-accent);
+    color: var(--color-bg);
+  }
+
+  .log {
+    margin-top: 2rem;
+    padding: 1rem;
+    background: var(--color-hud);
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 0.75rem;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .log-entry {
+    padding: 0.25rem 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+</style>
+
+<div class="container">
+  <div class="header">
+    <h1>Fixed Loading Screen Test</h1>
+    <p>Complete 6-stage sci-fi boot sequence with progress bar - Working Implementation</p>
+  </div>
+
+  <div class="test-section">
+    <h2>Boot Sequence Demo</h2>
+
+    <div class="demo-area">
+      <div class="stage-display">
+        <div id="stagePrimary" class="stage-primary">SYSTEM INITIALIZING</div>
+        <div id="stageSecondary" class="stage-secondary">PLEASE WAIT</div>
+
+        <div id="progressContainer" class="progress-container">
+          <div class="progress-track">
+            <div id="progressBar" class="progress-bar">
+              <div class="progress-glow"></div>
+            </div>
+          </div>
+          <div id="readyStatus" class="ready-status">[ SYSTEM READY ]</div>
+        </div>
+
+        <div id="stageCounter" style="font-size: 0.75rem; color: var(--color-subtle); margin-top: 1rem;">
+          Stage 1/6 • 0.0s
+        </div>
+      </div>
+    </div>
+
+    <div class="stage-info">
+      <div id="stage1Item" class="stage-item active">
+        <div style="font-size: 0.75rem; color: var(--color-accent); margin-bottom: 0.5rem;">Stage 1</div>
+        <div>SYSTEM INITIALIZING</div>
+        <div style="font-size: 0.75rem; color: var(--color-subtle); margin-top: 0.25rem;">PLEASE WAIT</div>
+      </div>
+
+      <div id="stage2Item" class="stage-item">
+        <div style="font-size: 0.75rem; color: var(--color-accent); margin-bottom: 0.5rem;">Stage 2</div>
+        <div>SCANNING SYSTEMS</div>
+        <div style="font-size: 0.75rem; color: var(--color-subtle); margin-top: 0.25rem;">ANALYZING ENVIRONMENT</div>
+      </div>
+
+      <div id="stage3Item" class="stage-item">
+        <div style="font-size: 0.75rem; color: var(--color-accent); margin-bottom: 0.5rem;">Stage 3</div>
+        <div>BOOT SEQUENCE</div>
+        <div style="font-size: 0.75rem; color: var(--color-subtle); margin-top: 0.25rem;">LOADING CORE MODULES</div>
+      </div>
+
+      <div id="stage4Item" class="stage-item">
+        <div style="font-size: 0.75rem; color: var(--color-accent); margin-bottom: 0.5rem;">Stage 4</div>
+        <div>PREPARING INTERFACE</div>
+        <div style="font-size: 0.75rem; color: var(--color-subtle); margin-top: 0.25rem;">CALIBRATING SYSTEM</div>
+      </div>
+
+      <div id="stage5Item" class="stage-item">
+        <div style="font-size: 0.75rem; color: var(--color-accent); margin-bottom: 0.5rem;">Stage 5</div>
+        <div>FINALIZING SYSTEM</div>
+        <div style="font-size: 0.75rem; color: var(--color-subtle); margin-top: 0.25rem;">OPTIMIZING PERFORMANCE</div>
+      </div>
+
+      <div id="stage6Item" class="stage-item">
+        <div style="font-size: 0.75rem; color: var(--color-accent); margin-bottom: 0.5rem;">Stage 6</div>
+        <div>LOADING PORTFOLIO</div>
+        <div style="font-size: 0.75rem; color: var(--color-subtle); margin-top: 0.25rem;">Progress bar</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="control-button" onclick="startSequence()">Start Complete Sequence</button>
+      <button class="control-button" onclick="resetSequence()">Reset</button>
+      <button class="control-button" onclick="skipToProgress()">Skip to Progress Bar</button>
+    </div>
+  </div>
+
+  <div class="test-section">
+    <h2>Sequence Log</h2>
+    <div class="log" id="logOutput">
+      <div class="log-entry">Ready to start sequence...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const stages = [
+    { primary: "SYSTEM INITIALIZING", secondary: "PLEASE WAIT", duration: 600 },
+    { primary: "SCANNING SYSTEMS", secondary: "ANALYZING ENVIRONMENT", duration: 600 },
+    { primary: "BOOT SEQUENCE", secondary: "LOADING CORE MODULES", duration: 600 },
+    { primary: "PREPARING INTERFACE", secondary: "CALIBRATING SYSTEM", duration: 600 },
+    { primary: "FINALIZING SYSTEM", secondary: "OPTIMIZING PERFORMANCE", duration: 400 },
+    { primary: "LOADING PORTFOLIO", secondary: "", duration: 900 }
+  ];
+
+  let timeouts = [];
+  let animationId = null;
+  let currentStage = 0;
+  let progress = 0;
+  let sequenceStarted = false;
+  let startTime = null;
+
+  function log(message) {
+    const logEl = document.getElementById('logOutput');
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+    logEl.appendChild(entry);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function updateDisplay(stageIndex, elapsed = 0) {
+    const stage = stages[stageIndex];
+
+    document.getElementById('stagePrimary').textContent = stage.primary;
+    document.getElementById('stageSecondary').textContent = stage.secondary;
+
+    // Update stage counter
+    document.getElementById('stageCounter').textContent =
+      `Stage ${stageIndex + 1}/6 • ${elapsed.toFixed(1)}s`;
+
+    // Update stage indicators
+    for (let i = 1; i <= 6; i++) {
+      const stageEl = document.getElementById(`stage${i}Item`);
+      if (stageEl) {
+        stageEl.classList.toggle('active', i === stageIndex + 1);
+      }
+    }
+
+    // Show/hide progress container
+    const progressContainer = document.getElementById('progressContainer');
+    if (stageIndex === 5) { // Final stage
+      progressContainer.style.display = 'block';
+      document.getElementById('readyStatus').style.display = 'none';
+    } else {
+      progressContainer.style.display = 'none';
+    }
+
+    currentStage = stageIndex;
+  }
+
+  function startProgressBar() {
+    const progressBar = document.getElementById('progressBar');
+    const readyStatus = document.getElementById('readyStatus');
+    const duration = 900;
+    startTime = performance.now();
+    progress = 0;
+
+    log("Starting progress bar animation (900ms)");
+
+    function animate() {
+      const elapsed = performance.now() - startTime;
+      progress = Math.min(elapsed / duration, 1);
+      progressBar.style.width = `${progress * 100}%`;
+
+      // Update counter
+      document.getElementById('stageCounter').textContent =
+        `Stage 6/6 • ${((2800 + elapsed) / 1000).toFixed(1)}s • ${Math.round(progress * 100)}%`;
+
+      if (progress < 1) {
+        animationId = requestAnimationFrame(animate);
+      } else {
+        // Complete
+        progressBar.style.width = '100%';
+        readyStatus.style.display = 'block';
+        log("Progress bar complete at 100% - [ SYSTEM READY ]");
+        log("Sequence complete in ~3.7s");
+      }
+    }
+
+    animationId = requestAnimationFrame(animate);
+  }
+
+  function startSequence() {
+    if (sequenceStarted) return;
+    sequenceStarted = true;
+
+    log("Starting complete 6-stage boot sequence...");
+    log("Timing: Stage 1-5 = 2.8s, Stage 6 + progress = 0.9s (Total: ~3.7s)");
+
+    // Clear any existing timeouts
+    timeouts.forEach(timeout => clearTimeout(timeout));
+    timeouts = [];
+    if (animationId) cancelAnimationFrame(animationId);
+
+    let accumulatedTime = 0;
+
+    // Start with stage 0
+    updateDisplay(0, 0);
+
+    // Schedule stage transitions
+    for (let i = 1; i < stages.length; i++) {
+      accumulatedTime += stages[i - 1].duration;
+
+      const timeout = setTimeout(() => {
+        log(`Transition to Stage ${i + 1}: ${stages[i].primary} (at ${accumulatedTime}ms)`);
+        updateDisplay(i, accumulatedTime / 1000);
+
+        if (i === stages.length - 1) {
+          log("Starting progress bar in final stage...");
+          startProgressBar();
+        }
+      }, accumulatedTime);
+
+      timeouts.push(timeout);
+    }
+
+    log("Sequence scheduled - all stages will progress automatically");
+  }
+
+  function resetSequence() {
+    log("Resetting sequence...");
+
+    // Clear timeouts and animation
+    timeouts.forEach(timeout => clearTimeout(timeout));
+    timeouts = [];
+    if (animationId) cancelAnimationFrame(animationId);
+
+    // Reset state
+    currentStage = 0;
+    progress = 0;
+    sequenceStarted = false;
+    startTime = null;
+
+    // Reset display
+    updateDisplay(0, 0);
+    document.getElementById('progressBar').style.width = '0%';
+    document.getElementById('readyStatus').style.display = 'none';
+  }
+
+  function skipToProgress() {
+    log("Skipping to progress bar stage...");
+
+    // Clear timeouts and animation
+    timeouts.forEach(timeout => clearTimeout(timeout));
+    timeouts = [];
+    if (animationId) cancelAnimationFrame(animationId);
+
+    // Jump to final stage
+    currentStage = 5;
+    updateDisplay(5, 2.8);
+    startProgressBar();
+  }
+
+  // Initialize
+  log("Test page loaded successfully");
+  log("Implementation matches LoadingScreen.tsx with reliable stage progression");
+  log("Progress bar height: 3px with gradient effect");
+  log("Total sequence time: 600+600+600+600+400+900 = 3700ms (3.7s)");
+</script>

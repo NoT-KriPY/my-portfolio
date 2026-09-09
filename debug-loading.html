@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debug Loading Sequence</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0a;
+      color: #f5f5f0;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+      color: #3b82f6;
+    }
+
+    .stage-display {
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 3rem;
+      text-align: center;
+      min-height: 200px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+
+    .primary {
+      font-size: 1.75rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: #fff;
+    }
+
+    .secondary {
+      font-size: 0.875rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .progress-container {
+      width: 100%;
+      max-width: 400px;
+      margin-top: 1.5rem;
+      display: none;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 3px;
+      background: #333;
+      border-radius: 2px;
+      overflow: visible;
+      position: relative;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #3b82f6, #60a5fa);
+      border-radius: 2px;
+      transition: width 0.1s linear;
+      position: relative;
+    }
+
+    .progress-glow {
+      position: absolute;
+      right: 0;
+      top: 0;
+      width: 8px;
+      height: 100%;
+      background: #3b82f6;
+      box-shadow: 0 0 10px #3b82f6, 0 0 20px rgba(59, 130, 246, 0.5);
+      border-radius: 2px;
+    }
+
+    .ready-status {
+      margin-top: 1rem;
+      color: #3b82f6;
+      font-size: 0.875rem;
+      letter-spacing: 0.1em;
+      display: none;
+    }
+
+    .progress-percent {
+      margin-top: 0.5rem;
+      font-size: 0.875rem;
+      color: #3b82f6;
+    }
+
+    .timeline {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .timeline-item {
+      padding: 0.5rem 1rem;
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      color: #666;
+      transition: all 0.2s;
+    }
+
+    .timeline-item.active {
+      border-color: #3b82f6;
+      background: rgba(59, 130, 246, 0.1);
+      color: #3b82f6;
+    }
+
+    .timeline-item.complete {
+      border-color: #22c55e;
+      background: rgba(34, 197, 94, 0.1);
+      color: #22c55e;
+    }
+
+    .log {
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 1rem;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 0.75rem;
+    }
+
+    .log-entry {
+      padding: 0.25rem 0;
+      border-bottom: 1px solid #222;
+      color: #888;
+    }
+
+    .log-entry.highlight {
+      color: #3b82f6;
+    }
+
+    .log-entry.success {
+      color: #22c55e;
+    }
+
+    .log-entry.error {
+      color: #ef4444;
+    }
+
+    .controls {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    button {
+      padding: 0.75rem 1.5rem;
+      background: #222;
+      border: 1px solid #444;
+      color: #fff;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      background: #333;
+      border-color: #3b82f6;
+    }
+
+    button.primary {
+      background: #3b82f6;
+      border-color: #3b82f6;
+    }
+
+    button.primary:hover {
+      background: #2563eb;
+    }
+
+    .status {
+      margin-bottom: 1rem;
+      padding: 1rem;
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 8px;
+      font-size: 0.875rem;
+    }
+
+    .status-label {
+      color: #666;
+      margin-right: 0.5rem;
+    }
+
+    .status-value {
+      color: #3b82f6;
+    }
+
+    .error-display {
+      background: #1a1111;
+      border: 1px solid #ef4444;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      display: none;
+    }
+
+    .error-display.visible {
+      display: block;
+    }
+
+    .error-title {
+      color: #ef4444;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 Loading Screen Debug Test</h1>
+
+    <div class="controls">
+      <button class="primary" onclick="startSequence()">▶ Start Sequence</button>
+      <button onclick="resetSequence()">↺ Reset</button>
+      <button onclick="clearSession()">🗑️ Clear SessionStorage</button>
+    </div>
+
+    <div class="status">
+      <span class="status-label">Session Storage:</span>
+      <span class="status-value" id="sessionStatus">Checking...</span>
+    </div>
+
+    <div class="error-display" id="errorDisplay">
+      <div class="error-title">❌ JavaScript Error</div>
+      <div id="errorMessage"></div>
+    </div>
+
+    <div class="timeline" id="timeline">
+      <div class="timeline-item" data-stage="0">1. SYSTEM INITIALIZING</div>
+      <div class="timeline-item" data-stage="1">2. SCANNING SYSTEMS</div>
+      <div class="timeline-item" data-stage="2">3. BOOT SEQUENCE</div>
+      <div class="timeline-item" data-stage="3">4. PREPARING INTERFACE</div>
+      <div class="timeline-item" data-stage="4">5. FINALIZING SYSTEM</div>
+      <div class="timeline-item" data-stage="5">6. LOADING PORTFOLIO</div>
+    </div>
+
+    <div class="stage-display">
+      <div class="primary" id="primary">SYSTEM INITIALIZING</div>
+      <div class="secondary" id="secondary">PLEASE WAIT</div>
+
+      <div class="progress-container" id="progressContainer">
+        <div class="progress-track">
+          <div class="progress-bar" id="progressBar">
+            <div class="progress-glow"></div>
+          </div>
+        </div>
+        <div class="progress-percent" id="progressPercent">0%</div>
+        <div class="ready-status" id="readyStatus">[ SYSTEM READY ]</div>
+      </div>
+    </div>
+
+    <div class="log" id="log">
+      <div class="log-entry">Ready. Click "Start Sequence" to begin...</div>
+    </div>
+  </div>
+
+  <script>
+    // Exact copy of the boot stages from LoadingScreen.tsx
+    const BOOT_STAGES = [
+      { primary: "SYSTEM INITIALIZING", secondary: "PLEASE WAIT", duration: 600 },
+      { primary: "SCANNING SYSTEMS", secondary: "ANALYZING ENVIRONMENT", duration: 600 },
+      { primary: "BOOT SEQUENCE", secondary: "LOADING CORE MODULES", duration: 600 },
+      { primary: "PREPARING INTERFACE", secondary: "CALIBRATING SYSTEM", duration: 600 },
+      { primary: "FINALIZING SYSTEM", secondary: "OPTIMIZING PERFORMANCE", duration: 400 },
+      { primary: "LOADING PORTFOLIO", secondary: "", duration: 900 }
+    ];
+
+    let timeouts = [];
+    let animationFrame = null;
+    let currentStage = 0;
+    let isRunning = false;
+
+    // Check session storage on load
+    window.addEventListener('load', () => {
+      updateSessionStatus();
+    });
+
+    function updateSessionStatus() {
+      const seen = sessionStorage.getItem("intro-seen");
+      document.getElementById('sessionStatus').textContent = seen ? 'intro-seen is SET (loader will skip!)' : 'intro-seen is NOT set (loader will run)';
+    }
+
+    function clearSession() {
+      sessionStorage.removeItem("intro-seen");
+      log("SessionStorage cleared - intro-seen removed", "highlight");
+      updateSessionStatus();
+    }
+
+    function log(message, type = "") {
+      const logEl = document.getElementById('log');
+      const entry = document.createElement('div');
+      entry.className = 'log-entry' + (type ? ' ' + type : '');
+      entry.textContent = `[${new Date().toISOString().substr(11, 12)}] ${message}`;
+      logEl.appendChild(entry);
+      logEl.scrollTop = logEl.scrollHeight;
+      console.log(message);
+    }
+
+    function showError(error) {
+      const errorDisplay = document.getElementById('errorDisplay');
+      const errorMessage = document.getElementById('errorMessage');
+      errorDisplay.classList.add('visible');
+      errorMessage.textContent = error.message || String(error);
+      log("ERROR: " + (error.message || String(error)), "error");
+    }
+
+    function updateDisplay(stageIndex) {
+      const stage = BOOT_STAGES[stageIndex];
+      currentStage = stageIndex;
+
+      // Update text
+      document.getElementById('primary').textContent = stage.primary;
+      document.getElementById('secondary').textContent = stage.secondary || '';
+
+      // Update timeline
+      document.querySelectorAll('.timeline-item').forEach((item, i) => {
+        item.classList.remove('active', 'complete');
+        if (i < stageIndex) {
+          item.classList.add('complete');
+        } else if (i === stageIndex) {
+          item.classList.add('active');
+        }
+      });
+
+      // Show/hide progress container
+      const progressContainer = document.getElementById('progressContainer');
+      if (stageIndex === 5) {
+        progressContainer.style.display = 'block';
+        log(`Stage 6: Progress bar should now be visible`, "highlight");
+      } else {
+        progressContainer.style.display = 'none';
+      }
+    }
+
+    function startProgressAnimation() {
+      log("Starting progress animation (900ms)...", "highlight");
+      const progressBar = document.getElementById('progressBar');
+      const progressPercent = document.getElementById('progressPercent');
+      const readyStatus = document.getElementById('readyStatus');
+
+      const startTime = Date.now();
+      const duration = 900;
+
+      function animate() {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const percent = Math.floor(progress * 100);
+
+        progressBar.style.width = percent + '%';
+        progressPercent.textContent = percent + '%';
+        log(`Progress: ${percent}%`);
+
+        if (progress < 1) {
+          animationFrame = requestAnimationFrame(animate);
+        } else {
+          log("Progress bar complete!", "success");
+          readyStatus.style.display = 'block';
+          progressPercent.textContent = '100%';
+
+          // Fade out after 200ms
+          setTimeout(() => {
+            log("Fading out loader...", "highlight");
+            document.querySelector('.stage-display').style.opacity = '0.3';
+            document.querySelector('.stage-display').style.transition = 'opacity 0.3s';
+
+            setTimeout(() => {
+              log("Loader complete - sessionStorage will be set", "success");
+              try {
+                sessionStorage.setItem("intro-seen", "true");
+                updateSessionStatus();
+              } catch (e) {
+                log("Could not set sessionStorage: " + e.message, "error");
+              }
+            }, 300);
+          }, 200);
+        }
+      }
+
+      animationFrame = requestAnimationFrame(animate);
+    }
+
+    function startSequence() {
+      if (isRunning) {
+        log("Sequence already running!", "error");
+        return;
+      }
+
+      // Check session storage first
+      if (sessionStorage.getItem("intro-seen")) {
+        log("⚠️ sessionStorage has 'intro-seen' - loader would be skipped!", "error");
+        log("Click 'Clear SessionStorage' to test the full sequence", "error");
+        return;
+      }
+
+      isRunning = true;
+      log("=== Starting boot sequence ===", "highlight");
+
+      // Clear any existing timeouts/animation
+      resetSequence(false);
+
+      let accumulatedTime = 0;
+
+      // Stage 0 - already showing
+      updateDisplay(0);
+      log("Stage 1 (0ms): SYSTEM INITIALIZING");
+
+      // Schedule stages 1-5
+      for (let i = 1; i < BOOT_STAGES.length; i++) {
+        accumulatedTime += BOOT_STAGES[i - 1].duration;
+
+        const timeout = setTimeout(() => {
+          log(`Stage ${i + 1} (${accumulatedTime}ms): ${BOOT_STAGES[i].primary}`);
+          updateDisplay(i);
+
+          if (i === 5) {
+            startProgressAnimation();
+          }
+        }, accumulatedTime);
+
+        timeouts.push(timeout);
+      }
+
+      // Total: 600+600+600+600+400 = 2800ms for stages 1-5, then 900ms progress = 3700ms total
+      log(`Sequence scheduled: ${timeouts.length} timeouts, ~3.7s total`, "success");
+    }
+
+    function resetSequence(clearRunning = true) {
+      if (clearRunning) {
+        isRunning = false;
+      }
+
+      // Clear timeouts
+      timeouts.forEach(t => clearTimeout(t));
+      timeouts = [];
+
+      // Cancel animation
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+        animationFrame = null;
+      }
+
+      // Reset display
+      updateDisplay(0);
+      document.getElementById('progressBar').style.width = '0%';
+      document.getElementById('progressPercent').textContent = '0%';
+      document.getElementById('readyStatus').style.display = 'none';
+      document.querySelector('.stage-display').style.opacity = '1';
+      document.querySelector('.stage-display').style.transition = 'none';
+
+      log("Sequence reset");
+    }
+
+    // Global error handler
+    window.onerror = function(message, source, lineno, colno, error) {
+      showError(error || { message: String(message) });
+      return false;
+    };
+
+    // Catch unhandled promise rejections
+    window.onunhandledrejection = function(event) {
+      showError(event.reason || { message: "Unhandled promise rejection" });
+    };
+  </script>
+</body>
+</html>
