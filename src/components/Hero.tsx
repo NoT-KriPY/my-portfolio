@@ -13,15 +13,6 @@ export function Hero() {
           initial="hidden"
           animate="visible"
         >
-          <motion.p
-            className="label hero__eyebrow"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-          >
-            {heroData.eyebrow}
-          </motion.p>
-
           <HeroHeadline />
 
           <motion.p

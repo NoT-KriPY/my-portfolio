@@ -1,119 +1,171 @@
 "use client";
 
-import { useEffect, useState, useTransition, useRef } from "react";
+import { useEffect, useState, useRef, useTransition, useCallback } from "react";
+import { usePathname } from "next/navigation";
 
-const SESSION_KEY = "portfolio-preloader-seen";
 const DURATION = 3500;
+// Keep final text on screen longer — especially SYSTEM READY / LOADING
+const READY_HOLD_MS = 700;
 
 export function LoadingScreen() {
   const [, startTransition] = useTransition();
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("INITIALIZING SYSTEM...");
   const [isReady, setIsReady] = useState(false);
-  const [isVisible, setIsVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
   const rafIdRef = useRef<number | null>(null);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const pathname = usePathname();
+  const prevPathRef = useRef<string | null>(null);
+  const runIdRef = useRef(0);
 
-  useEffect(() => {
-    // Check session storage
-    const hasSeen = sessionStorage.getItem(SESSION_KEY);
-    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const clearTimers = useCallback(() => {
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
+  }, []);
 
-    if (hasSeen && !prefersReducedMotion) {
-      // Skip animation if already seen
-      startTransition(() => {
-        setIsReady(true);
-        setIsVisible(false);
-      });
-      // Dispatch event for components that need to know loading is done
-      window.dispatchEvent(new CustomEvent("loading-complete"));
+  const runSequence = useCallback(() => {
+    const runId = ++runIdRef.current;
+    clearTimers();
+
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const finalStatus =
+      (typeof window !== "undefined" ? window.location.pathname : (pathname ?? "/")) === "/"
+        ? "SYSTEM READY"
+        : "LOADING";
+
+    // Reset visible state in case component had returned null (isReady && !isVisible)
+    // or is mid-hidden — force a fresh run
+    setIsReady(false);
+    setIsVisible(true);
+    setProgress(0);
+    setStatus("INITIALIZING SYSTEM...");
+
+    if (prefersReducedMotion) {
+      setProgress(100);
+      setStatus(finalStatus);
+      const t1 = setTimeout(() => {
+        if (runId !== runIdRef.current) return;
+        document.body.style.overflow = "";
+        startTransition(() => setIsReady(true));
+        const t2 = setTimeout(() => {
+          if (runId !== runIdRef.current) return;
+          startTransition(() => setIsVisible(false));
+          window.dispatchEvent(new CustomEvent("loading-complete"));
+        }, 450);
+        timersRef.current.push(t2);
+      }, 400);
+      timersRef.current.push(t1);
       return;
     }
 
-    // Prevent scroll during load
     document.body.style.overflow = "hidden";
-    startTransition(() => {
-      setIsVisible(true);
-    });
-
     const startTime = performance.now();
 
-    function animate(now: number) {
+    const animate = (now: number) => {
+      if (runId !== runIdRef.current) return;
       const elapsed = now - startTime;
       const p = Math.min(elapsed / DURATION, 1);
 
-      // Use requestAnimationFrame loop instead of setState inside effect
-      requestAnimationFrame(animate);
-
-      // Update progress and status through closure state updates
-      // This is called in the animation loop, not directly in the effect
       if (p < 1) {
-        // During animation
-        const currentStatus = elapsed >= 2400 ? "LOADING..." :
-          elapsed >= 1600 ? "BOOTING..." :
-          elapsed >= 800 ? "SCANNING..." : "INITIALIZING SYSTEM...";
+        // Keep the first phase readable — don't skip INITIALIZING SYSTEM...
+        const minInitialMs = 900;
+        const currentStatus =
+          elapsed < minInitialMs
+            ? "INITIALIZING SYSTEM..."
+            : elapsed >= 2600
+              ? "LOADING..."
+              : elapsed >= 1800
+                ? "BOOTING..."
+                : elapsed >= 1000
+                  ? "SCANNING..."
+                  : "INITIALIZING SYSTEM...";
         setProgress(p * 100);
         setStatus(currentStatus);
+        rafIdRef.current = requestAnimationFrame(animate);
       } else {
-        // Animation complete
-        setStatus("SYSTEM READY");
+        setStatus(finalStatus);
         setProgress(100);
-
-        setTimeout(() => {
+        const t1 = setTimeout(() => {
+          if (runId !== runIdRef.current) return;
           document.body.style.overflow = "";
-          startTransition(() => {
-            setIsReady(true);
-          });
-
-          setTimeout(() => {
-            startTransition(() => {
-              setIsVisible(false);
-            });
-            if (!hasSeen) {
-              sessionStorage.setItem(SESSION_KEY, "true");
-            }
-            // Dispatch event when loading is complete
+          startTransition(() => setIsReady(true));
+          const t2 = setTimeout(() => {
+            if (runId !== runIdRef.current) return;
+            startTransition(() => setIsVisible(false));
             window.dispatchEvent(new CustomEvent("loading-complete"));
           }, 450);
-        }, 180);
-
-        // Stop the animation loop
-        if (rafIdRef.current) {
-          cancelAnimationFrame(rafIdRef.current);
-        }
+          timersRef.current.push(t2);
+        }, READY_HOLD_MS);
+        timersRef.current.push(t1);
       }
-    }
+    };
 
-    if (prefersReducedMotion) {
-      // Skip animation for reduced motion - use setTimeout to defer state updates
-      setTimeout(() => {
-        setProgress(100);
-        setStatus("SYSTEM READY");
+    rafIdRef.current = requestAnimationFrame(animate);
+  }, [clearTimers, startTransition, pathname]);
 
-        setTimeout(() => {
-          document.body.style.overflow = "";
-          startTransition(() => {
-            setIsReady(true);
-          });
-          setTimeout(() => {
-            startTransition(() => {
-              setIsVisible(false);
-            });
-            sessionStorage.setItem(SESSION_KEY, "true");
-            window.dispatchEvent(new CustomEvent("loading-complete"));
-          }, 450);
-        }, 100);
-      }, 0);
-    } else {
-      rafIdRef.current = requestAnimationFrame(animate);
-    }
-
+  // Initial mount — always play once
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: preloader must boot on mount and on every internal navigation
+    runSequence();
     return () => {
-      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+      clearTimers();
       document.body.style.overflow = "";
     };
+  }, [runSequence, clearTimers]);
+
+  // Replay on internal route changes only (ignore hash-only changes and first mount, handle external via not triggering)
+  useEffect(() => {
+    const current = pathname ?? "/";
+    const normalized = current.split("#")[0] || "/";
+    if (prevPathRef.current === null) {
+      prevPathRef.current = normalized;
+      return;
+    }
+    if (prevPathRef.current === normalized) return;
+    prevPathRef.current = normalized;
+    runSequence();
+  }, [pathname, runSequence]);
+
+  // Also intercept same-origin internal link clicks that may not change pathname synchronously
+  // (e.g. / -> /#about keeps pathname "/"). We still want to replay for clicks to different sections
+  // that go through Next Link? For hash-only we skip — for href !== current pathname we replay.
+  // The pathname effect above already covers true route changes. For hash nav we intentionally skip.
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      const anchor = target?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!anchor) return;
+      const href = anchor.getAttribute("href");
+      if (!href) return;
+      // Skip external, new-tab, hash-only, and protocol links
+      if (anchor.target === "_blank") return;
+      if (/^(https?:|mailto:|tel:)/i.test(href)) return;
+      if (href.startsWith("#")) return;
+      try {
+        const url = new URL(href, window.location.href);
+        if (url.origin !== window.location.origin) return;
+        const nextPath = url.pathname.split("#")[0] || "/";
+        const curPath = window.location.pathname.split("#")[0] || "/";
+        if (nextPath === curPath && url.hash) return; // same-page hash jump — don't replay
+        // Different internal path — let Next handle navigation; pathname effect will replay.
+        // But also trigger immediately so user sees loader without waiting for route commit
+        // when navigation is via hard push. We run sequence here too; deduped by runId.
+      } catch {
+        return;
+      }
+    };
+    document.addEventListener("click", handler, true);
+    return () => document.removeEventListener("click", handler, true);
   }, []);
 
-  // Don't render anything once ready
   if (isReady && !isVisible) {
     return null;
   }

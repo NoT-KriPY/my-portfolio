@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import { heroData } from "@/lib/data";
 
 const SCRAMBLE_CHARS =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&*!?";
-const SCRAMBLE_INTERVAL = 20;
+const SCRAMBLE_INTERVAL = 14;
 const CHAR_LOCK_DURATION = 80;
-const START_DELAY = 200;
+const START_DELAY = 120;
+const HEADLINE_LINES = heroData.headline.split("\n");
 
 interface CharItem {
   element: HTMLElement;
@@ -16,43 +17,41 @@ interface CharItem {
 }
 
 function createScrambleText(element: HTMLElement, finalLines: string[]): { stop: () => void } {
-  // Check if element is still in the DOM before manipulating
-  if (!element.isConnected) {
-    return { stop: () => {} };
-  }
+  if (!element.isConnected) return { stop: () => {} };
+
+  // Freeze h1 box before touching DOM so innerHTML="" never collapses
+  const rect = element.getBoundingClientRect();
+  element.style.height = rect.height + "px";
+  element.style.minHeight = rect.height + "px";
+  element.style.overflow = "hidden";
 
   element.innerHTML = "";
 
   const allChars: CharItem[] = [];
 
-  finalLines.forEach((line, lineIndex) => {
-    const words = line.split(" ");
+  finalLines.forEach((line) => {
+    const block = document.createElement("span");
+    block.className = "scramble-block";
 
-    words.forEach((word) => {
+    const words = line.split(" ");
+    words.forEach((word, wordIndex) => {
       word.split("").forEach((char) => {
         const span = document.createElement("span");
         span.className = "scramble-char";
         span.textContent =
           SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)];
-        element.appendChild(span);
-
-        allChars.push({
-          element: span,
-          finalChar: char,
-          locked: false,
-        });
+        block.appendChild(span);
+        allChars.push({ element: span, finalChar: char, locked: false });
       });
-
-      const space = document.createElement("span");
-      space.className = "scramble-space";
-      space.textContent = " ";
-      element.appendChild(space);
+      if (wordIndex < words.length - 1) {
+        const space = document.createElement("span");
+        space.className = "scramble-space";
+        space.textContent = " ";
+        block.appendChild(space);
+      }
     });
 
-    if (lineIndex < finalLines.length - 1) {
-      const br = document.createElement("br");
-      element.appendChild(br);
-    }
+    element.appendChild(block);
   });
 
   let animationFrame: number | null = null;
@@ -102,12 +101,12 @@ function createScrambleText(element: HTMLElement, finalLines: string[]): { stop:
       }
     });
 
-    // Check if all locked
-    const allLocked = allChars.every((c) => c.locked);
-
-    if (allLocked) {
+    if (allChars.every((c) => c.locked)) {
       finished = true;
       animationFrame = null;
+      element.style.height = "";
+      element.style.minHeight = "";
+      element.style.overflow = "";
       return;
     }
 
@@ -119,14 +118,12 @@ function createScrambleText(element: HTMLElement, finalLines: string[]): { stop:
   return {
     stop() {
       finished = true;
-      if (animationFrame) {
-        cancelAnimationFrame(animationFrame);
-      }
+      if (animationFrame) cancelAnimationFrame(animationFrame);
+      element.style.height = "";
+      element.style.minHeight = "";
+      element.style.overflow = "";
       allChars.forEach((item) => {
-        // Only update if element is still connected to DOM
-        if (item.element.isConnected) {
-          item.element.textContent = item.finalChar;
-        }
+        if (item.element.isConnected) item.element.textContent = item.finalChar;
       });
     },
   };
@@ -136,41 +133,31 @@ export function HeroHeadline() {
   const containerRef = useRef<HTMLHeadingElement>(null);
   const scrambleRef = useRef<{ stop: () => void } | null>(null);
 
-  const headlineLines = heroData.headline.split("\n");
-
-  const runAnimation = useCallback(() => {
-    if (scrambleRef.current) return;
-
-    const container = containerRef.current;
-    if (!container) return;
-
-    scrambleRef.current = createScrambleText(container, headlineLines);
-  }, [headlineLines]);
-
   useEffect(() => {
-    const handleLoadingComplete = () => {
-      runAnimation();
+    const runAnimation = () => {
+      if (scrambleRef.current) return;
+      const container = containerRef.current;
+      if (!container) return;
+      scrambleRef.current = createScrambleText(container, HEADLINE_LINES);
     };
 
-    window.addEventListener("loading-complete", handleLoadingComplete);
+    window.addEventListener("loading-complete", runAnimation);
 
     return () => {
-      window.removeEventListener("loading-complete", handleLoadingComplete);
+      window.removeEventListener("loading-complete", runAnimation);
       if (scrambleRef.current) {
         scrambleRef.current.stop();
       }
     };
-  }, [runAnimation]);
+  }, []);
 
   return (
-    <h1
-      className="t-hero hero__headline"
-      ref={containerRef}
-      dangerouslySetInnerHTML={{
-        __html: headlineLines
-          .map((line) => `<span class="scramble-block">${line}</span>`)
-          .join("")
-      }}
-    />
+    <h1 className="t-hero hero__headline" ref={containerRef} aria-label={HEADLINE_LINES.join(" ")}>
+      {HEADLINE_LINES.map((line, i) => (
+        <span key={i} className="scramble-block">
+          {line}
+        </span>
+      ))}
+    </h1>
   );
 }

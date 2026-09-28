@@ -34,7 +34,7 @@ export function Credentials() {
         </motion.div>
 
         <div className="credentials__grid">
-          {credentialsData.items.map((credential) => (
+          {credentialsData.items.slice(0, 6).map((credential) => (
             <motion.div
               key={credential.verificationUrl}
               className="credential"

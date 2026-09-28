@@ -9,7 +9,17 @@
       "PowerShell(Invoke-WebRequest -Uri \"http://localhost:3000\" -Method Head -TimeoutSec 5 -ErrorAction SilentlyContinue)",
       "PowerShell(Get-Process *)",
       "PowerShell(head *)",
-      "PowerShell(Get-ChildItem \"src\\\\app\\\\certificates\" -Force 2>&1 | Out-String; Write-Host \"---DIR CHECK---\"; if \\(Test-Path \"src\\\\app\\\\certificates\"\\) { \\(Get-ChildItem \"src\\\\app\\\\certificates\" -Recurse | Select-Object FullName | Out-String\\).Trim\\(\\); if \\(-not \\(Get-ChildItem \"src\\\\app\\\\certificates\" -Recurse\\)\\) { Write-Host \"\\(empty dir\\)\" } } else { Write-Host \"no certificates dir\" })"
+      "PowerShell(Get-ChildItem \"src\\\\app\\\\certificates\" -Force 2>&1 | Out-String; Write-Host \"---DIR CHECK---\"; if \\(Test-Path \"src\\\\app\\\\certificates\"\\) { \\(Get-ChildItem \"src\\\\app\\\\certificates\" -Recurse | Select-Object FullName | Out-String\\).Trim\\(\\); if \\(-not \\(Get-ChildItem \"src\\\\app\\\\certificates\" -Recurse\\)\\) { Write-Host \"\\(empty dir\\)\" } } else { Write-Host \"no certificates dir\" })",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(git checkout *)",
+      "WebFetch(domain:www.linkedin.com)",
+      "WebFetch(domain:academy.hackthebox.com)",
+      "WebSearch",
+      "Bash(node *)",
+      "Bash(cat)",
+      "Bash(python /tmp/patch.py)",
+      "PowerShell(npx tsc --noEmit 2>&1; Write-Host \"TSC_EXIT:$LASTEXITCODE\")"
     ]
   }
 }

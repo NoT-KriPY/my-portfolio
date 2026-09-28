@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 interface PageHeaderProps {
-  label: string;
+  label?: string;
   title: string;
   subtitle?: string;
   showBack?: boolean;
@@ -32,7 +32,7 @@ export function PageHeader({ label, title, subtitle, showBack = false, backHref 
           <ArrowLeft /> Back
         </Link>
       )}
-      <span className="label">{label}</span>
+      {label && <span className="label">{label}</span>}
       <h1 className="t-title page-header__title">{title}</h1>
       {subtitle && (
         <p className="t-body page-header__subtitle">{subtitle}</p>
